@@ -1,7 +1,7 @@
 #ifndef ERRORCODES_MACROS_HXX
 #define ERRORCODES_MACROS_HXX
 
-#include "ErrorCodes/CheckedValue.hxx"
+#include "ErrorCodes/FailureWrapper.hxx"
 #include <concepts>
 
 /// @brief Check the value of an expression and return if it is not a success

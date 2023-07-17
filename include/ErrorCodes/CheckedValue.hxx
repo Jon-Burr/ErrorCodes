@@ -7,18 +7,6 @@
 #include <variant>
 
 namespace ErrorCodes {
-    namespace detail {
-        /// @brief Wrapper class to aid automatic conversion in macros
-        /// @tparam Code The failure code
-        ///
-        /// This struct is intended mainly for internal use for the macros to indicate failure
-        template <typename Code> struct FailureWrapper {
-            FailureWrapper(Code code) : code(code) {}
-            operator Code() { return code; }
-
-            Code code;
-        };
-    } // namespace detail
     /// @brief Tag to indicate that the success version of a CheckedValue should be constructed
     struct success_t {};
     inline constexpr success_t success{};
@@ -29,9 +17,7 @@ namespace ErrorCodes {
     ///        could not be returned
     /// @tparam E The error info trait
     /// @tparam T The value held on success
-    template <typename E, typename T>
-        requires(ErrorInfoTrait<E>)
-    class CheckedValue {
+    template <ErrorInfoTrait E, typename T> class CheckedValue {
     public:
         using info_t = E;
         using type = T;
@@ -45,15 +31,24 @@ namespace ErrorCodes {
                 : CheckedValue(failure, code) {}
 
         /// @brief Create a successful value
-        /// @param args Arguments to construct the value in place
+        /// @param value The created value
         ///
         /// This version is only available if there is no ambiguity between code_t and T
-        template <typename... Args>
-        CheckedValue(Args &&...args)
+        CheckedValue(const T &value)
             requires(
                     !std::convertible_to<code_t, T> && !std::convertible_to<T, code_t> &&
-                    std::constructible_from<T, Args && ...>)
-                : CheckedValue(success, std::forward<Args>(args)...) {}
+                    std::copy_constructible<T>)
+                : CheckedValue(success, value) {}
+
+        /// @brief Create a successful value
+        /// @param value The created value
+        ///
+        /// This version is only available if there is no ambiguity between code_t and T
+        CheckedValue(T &&value)
+            requires(
+                    !std::convertible_to<code_t, T> && !std::convertible_to<T, code_t> &&
+                    std::move_constructible<T>)
+                : CheckedValue(success, std::move(value)) {}
 
         /// @brief Create a failed value
         /// @param code The error code
@@ -65,10 +60,6 @@ namespace ErrorCodes {
         CheckedValue(success_t, Args &&...args)
             requires(std::constructible_from<T, Args && ...>)
                 : m_value(std::in_place_index<1>, std::forward<Args>(args)...) {}
-
-        /// @brief Construct from the failure wrapper for use in checking macros
-        /// @param code The code indicating failure
-        CheckedValue(detail::FailureWrapper<code_t> code) : CheckedCode(failure, code.code) {}
 
         explicit CheckedValue(std::variant<code_t, T> &&value) : m_value(std::move(value)) {}
 
@@ -101,7 +92,7 @@ namespace ErrorCodes {
         using value_t = std::variant<typename E::code_t, typename E::code_t>;
 
     public:
-        CheckedCode(E::code_t code)
+        CheckedCode(typename E::code_t code)
                 : CheckedValue<E, typename E::code_t>(
                           E::isSuccess(code) ? value_t(std::in_place_index<1>, code)
                                              : value_t(std::in_place_index<0>, code)) {}

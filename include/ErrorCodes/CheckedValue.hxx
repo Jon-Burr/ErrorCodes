@@ -22,23 +22,22 @@ namespace ErrorCodes {
         using info_t = E;
         using type = T;
         using code_t = typename E::code_t;
+
+        /// @brief Create a failed value
+        /// @param code The error code
+        static CheckedValue<E, T> failure(code_t code) { return CheckedValue(ErrorCodes::failure, code); }
+
         /// @brief Create a failed value
         /// @param code The error code
         ///
         /// This version is only available if there is no ambiguity between code_t and T
         CheckedValue(code_t code)
             requires(!std::convertible_to<code_t, T> && !std::convertible_to<T, code_t>)
-                : CheckedValue(failure, code) {}
+                : CheckedValue(ErrorCodes::failure, code) {}
 
         /// @brief Create a successful value
         /// @param value The created value
-        ///
-        /// This version is only available if there is no ambiguity between code_t and T
-        CheckedValue(const T &value)
-            requires(
-                    !std::convertible_to<code_t, T> && !std::convertible_to<T, code_t> &&
-                    std::copy_constructible<T>)
-                : CheckedValue(success, value) {}
+        CheckedValue(const T &value) : CheckedValue(success, value) {}
 
         /// @brief Create a successful value
         /// @param value The created value
